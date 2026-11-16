@@ -1,0 +1,2128 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <!-- viewport : indispensable pour que la page s'adapte à l'écran du téléphone -->
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#7c5cff">
+  <meta name="description" content="Un éditeur de blocs pour organiser tes tâches et tes idées">
+
+  <!-- Installation sur mobile (PWA) -->
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Mes blocs">
+
+  <title>Mes blocs</title>
+  <style>
+/* =====================================================
+   style.css : couleurs, mise en page, menu latéral, en-tête
+   (les blocs, menus et animations sont dans blocs.css)
+   ===================================================== */
+
+/* ---------- Couleurs ---------- */
+:root {
+  --fond: #f7f6fb;
+  --carte: #ffffff;
+  --texte: #1d1b2a;
+  --discret: #8a86a0;
+  --ligne: #e8e5f2;
+  --survol: #f0eefa;
+  --ombre: 0 10px 30px rgba(40, 30, 90, .12);
+  --ombre-douce: 0 2px 10px rgba(40, 30, 90, .08);
+  --danger: #e5484d;
+  --rayon: 14px;
+  --clavier: 0px;
+  color-scheme: light;
+}
+
+/* Thème sombre : automatique, ou choisi à la main */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="clair"]) {
+    --fond: #14131c;
+    --carte: #1d1c29;
+    --texte: #ecebf5;
+    --discret: #8f8ca8;
+    --ligne: #2b2a3a;
+    --survol: #262535;
+    --ombre: 0 10px 30px rgba(0, 0, 0, .45);
+    --ombre-douce: 0 2px 10px rgba(0, 0, 0, .3);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="sombre"] {
+  --fond: #14131c;
+  --carte: #1d1c29;
+  --texte: #ecebf5;
+  --discret: #8f8ca8;
+  --ligne: #2b2a3a;
+  --survol: #262535;
+  --ombre: 0 10px 30px rgba(0, 0, 0, .45);
+  --ombre-douce: 0 2px 10px rgba(0, 0, 0, .3);
+  color-scheme: dark;
+}
+
+/* Couleur de la page (change tout l'accent de l'interface) */
+body                      { --accent: #7c5cff; --accent-2: #b08cff; }
+body[data-couleur="bleu"] { --accent: #2f80ed; --accent-2: #56c2ff; }
+body[data-couleur="vert"] { --accent: #14b571; --accent-2: #7be0a8; }
+body[data-couleur="orange"] { --accent: #ff7a1a; --accent-2: #ffc24d; }
+body[data-couleur="rose"] { --accent: #ff4d8d; --accent-2: #ff9ec1; }
+body[data-couleur="turquoise"] { --accent: #0fb5b0; --accent-2: #6fe3d8; }
+
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  margin: 0;
+  background: var(--fond);
+  color: var(--texte);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-size: 16px;               /* 16px : évite le zoom automatique sur iPhone */
+  line-height: 1.5;
+  transition: background .4s, color .4s;
+}
+
+button { font: inherit; color: inherit; cursor: pointer; }
+button:focus-visible, [contenteditable]:focus-visible, .sep:focus-visible, input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+[contenteditable]:empty::before {
+  content: attr(data-placeholder);
+  color: var(--discret);
+  opacity: .7;
+  pointer-events: none;
+}
+
+
+/* ---------- Disposition ---------- */
+.app { display: flex; min-height: 100vh; min-height: 100dvh; }
+.principal { flex: 1; min-width: 0; margin-left: 290px; }
+
+.haut { display: none; }
+
+
+/* ---------- Menu latéral ---------- */
+.lateral {
+  position: fixed;
+  inset: 0 auto 0 0;
+  width: 290px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 18px 14px calc(16px + env(safe-area-inset-bottom));
+  background: var(--carte);
+  border-right: 1px solid var(--ligne);
+  z-index: 40;
+  transition: transform .35s cubic-bezier(.2, .8, .2, 1), background .4s;
+}
+
+.lateral-tete {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 2px 6px 4px;
+  font-size: 1.15rem;
+}
+
+.logo {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  color: #fff;
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  box-shadow: 0 6px 16px color-mix(in srgb, var(--accent) 45%, transparent);
+  transition: background .4s;
+}
+
+.recherche {
+  width: 100%;
+  min-height: 44px;
+  padding: 0 14px;
+  border: 1px solid var(--ligne);
+  border-radius: 12px;
+  background: var(--fond);
+  color: var(--texte);
+  font: inherit;
+  transition: border-color .2s, box-shadow .2s;
+}
+.recherche:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent);
+}
+
+.liste-pages {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  overflow-y: auto;
+  margin: 0 -4px;
+  padding: 0 4px;
+}
+
+.vide { color: var(--discret); text-align: center; margin: 20px 0; }
+
+.page-item {
+  display: flex;
+  align-items: center;
+  border-radius: 12px;
+  transition: background .2s, transform .2s;
+  animation: glisse-droite .4s both;
+}
+.page-item:nth-child(2) { animation-delay: .04s; }
+.page-item:nth-child(3) { animation-delay: .08s; }
+.page-item:nth-child(4) { animation-delay: .12s; }
+.page-item:hover { background: var(--survol); }
+.page-item.actif {
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  font-weight: 600;
+}
+
+.page-ouvrir {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 46px;
+  padding: 0 10px;
+  border: 0;
+  background: none;
+  text-align: left;
+}
+.page-icone { font-size: 1.15rem; }
+.page-nom { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.point { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; background: #7c5cff; }
+.point[data-c="bleu"] { background: #2f80ed; }
+.point[data-c="vert"] { background: #14b571; }
+.point[data-c="orange"] { background: #ff7a1a; }
+.point[data-c="rose"] { background: #ff4d8d; }
+.point[data-c="turquoise"] { background: #0fb5b0; }
+
+.page-supprimer {
+  width: 40px;
+  height: 40px;
+  margin-right: 4px;
+  border: 0;
+  border-radius: 10px;
+  background: none;
+  color: var(--discret);
+  font-size: 1.3rem;
+  opacity: 0;
+  transition: opacity .2s, color .2s, background .2s;
+}
+.page-item:hover .page-supprimer, .page-supprimer:focus-visible { opacity: 1; }
+.page-supprimer:hover { color: var(--danger); background: color-mix(in srgb, var(--danger) 12%, transparent); }
+@media (hover: none) { .page-supprimer { opacity: .6; } }
+
+.btn-nouvelle {
+  min-height: 48px;
+  border: 0;
+  border-radius: 14px;
+  color: #fff;
+  font-weight: 600;
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  box-shadow: 0 8px 20px color-mix(in srgb, var(--accent) 40%, transparent);
+  transition: transform .2s, box-shadow .2s, background .4s;
+}
+.btn-nouvelle:hover { transform: translateY(-2px); }
+.btn-nouvelle:active { transform: scale(.97); }
+
+.lateral-pied { display: flex; flex-direction: column; gap: 6px; }
+.btn-doux {
+  min-height: 42px;
+  border: 1px solid var(--ligne);
+  border-radius: 12px;
+  background: none;
+  color: var(--discret);
+  transition: background .2s, color .2s;
+}
+.btn-doux:hover { background: var(--survol); color: var(--texte); }
+
+.voile {
+  position: fixed;
+  inset: 0;
+  z-index: 39;
+  background: rgba(10, 8, 25, .5);
+  backdrop-filter: blur(3px);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .3s;
+}
+
+
+/* ---------- Page et en-tête ---------- */
+.page {
+  position: relative;
+  max-width: 780px;
+  margin: 0 auto;
+  padding: 0 20px 190px;
+}
+
+.bandeau {
+  height: 150px;
+  margin: 0 -20px;
+  border-radius: 0 0 28px 28px;
+  background:
+    radial-gradient(circle at 15% 20%, rgba(255, 255, 255, .35), transparent 45%),
+    radial-gradient(circle at 85% 90%, rgba(255, 255, 255, .22), transparent 40%),
+    linear-gradient(120deg, var(--accent), var(--accent-2));
+  background-size: 140% 140%, 140% 140%, 200% 200%;
+  animation: bandeau 14s ease-in-out infinite alternate;
+}
+
+.entete { position: relative; margin-top: -42px; margin-bottom: 18px; }
+
+.icone-page {
+  display: grid;
+  place-items: center;
+  width: 78px;
+  height: 78px;
+  border: 4px solid var(--fond);
+  border-radius: 24px;
+  background: var(--carte);
+  font-size: 2.3rem;
+  box-shadow: var(--ombre-douce);
+  transition: transform .2s, border-color .4s, background .4s;
+}
+.icone-page:hover { transform: rotate(-6deg) scale(1.06); }
+.icone-page.rebond { animation: rebond .55s cubic-bezier(.3, 1.6, .5, 1); }
+
+#titre-page {
+  margin: 12px 0 10px;
+  font-size: clamp(1.9rem, 6vw, 2.6rem);
+  line-height: 1.15;
+  font-weight: 800;
+  letter-spacing: -.02em;
+  outline: none;
+  overflow-wrap: anywhere;
+}
+
+.couleurs { display: flex; gap: 10px; margin-bottom: 4px; }
+
+.pastille {
+  width: 28px;
+  height: 28px;
+  border: 3px solid var(--fond);
+  border-radius: 50%;
+  background: #7c5cff;
+  box-shadow: 0 0 0 1px var(--ligne);
+  transition: transform .2s cubic-bezier(.3, 1.6, .5, 1), box-shadow .2s;
+}
+.pastille[data-c="bleu"] { background: #2f80ed; }
+.pastille[data-c="vert"] { background: #14b571; }
+.pastille[data-c="orange"] { background: #ff7a1a; }
+.pastille[data-c="rose"] { background: #ff4d8d; }
+.pastille[data-c="turquoise"] { background: #0fb5b0; }
+.pastille:hover { transform: scale(1.18); }
+.pastille.choisie { transform: scale(1.18); box-shadow: 0 0 0 2px var(--accent); }
+
+.progres { display: flex; align-items: center; gap: 12px; margin-top: 14px; font-size: .9rem; color: var(--discret); }
+.progres[hidden] { display: none; }
+.progres-barre { flex: 1; height: 10px; overflow: hidden; border-radius: 99px; background: var(--ligne); }
+#progres-rempli {
+  display: block;
+  height: 100%;
+  width: 0;
+  border-radius: 99px;
+  background: linear-gradient(90deg, var(--accent), var(--accent-2));
+  transition: width .6s cubic-bezier(.2, .8, .2, 1), background .4s;
+}
+.progres.complet #progres-texte { color: var(--accent); font-weight: 700; }
+.progres.complet #progres-rempli { animation: brille 1.4s ease-in-out infinite; }
+
+.page.change { animation: page-entre .45s cubic-bezier(.2, .8, .2, 1); }
+
+
+/* ---------- Petit écran (téléphone) ---------- */
+@media (max-width: 860px) {
+  .principal { margin-left: 0; }
+
+  .lateral { transform: translateX(-102%); width: min(86vw, 320px); box-shadow: var(--ombre); }
+  body.menu-ouvert .lateral { transform: none; }
+  body.menu-ouvert .voile { opacity: 1; pointer-events: auto; }
+  body.menu-ouvert { overflow: hidden; }
+
+  .haut {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: calc(8px + env(safe-area-inset-top)) 14px 8px;
+    background: color-mix(in srgb, var(--fond) 82%, transparent);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--ligne);
+  }
+  .btn-menu {
+    width: 44px;
+    height: 44px;
+    border: 1px solid var(--ligne);
+    border-radius: 12px;
+    background: var(--carte);
+    font-size: 1.2rem;
+  }
+  .bandeau { height: 120px; }
+}
+
+
+/* ---------- Animations ---------- */
+@keyframes bandeau { to { background-position: 100% 100%, 0 0, 100% 50%; } }
+@keyframes rebond { 0% { transform: scale(.6) rotate(-14deg); } 100% { transform: none; } }
+@keyframes glisse-droite { from { opacity: 0; transform: translateX(-14px); } to { opacity: 1; transform: none; } }
+@keyframes page-entre { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+@keyframes brille { 50% { filter: brightness(1.25) saturate(1.2); } }
+
+/* Respecte les personnes qui préfèrent moins d'animations */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+</style>
+  <style>
+/* =====================================================
+   blocs.css : les blocs, la barre du bas, les menus, le message
+   ===================================================== */
+
+/* ---------- Blocs ---------- */
+.bloc {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  min-height: 44px;
+  margin-left: calc(var(--niveau, 0) * 26px);
+  border-radius: 12px;
+  transition: background .2s, margin .25s cubic-bezier(.2, .8, .2, 1), box-shadow .2s, transform .2s;
+}
+.bloc:hover, .bloc.actif { background: color-mix(in srgb, var(--accent) 6%, transparent); }
+
+/* Poignée ⋮⋮ à gauche du bloc */
+.poignee {
+  flex-shrink: 0;
+  width: 28px;
+  height: 44px;
+  margin-left: -4px;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  color: var(--discret);
+  display: grid;
+  place-items: center;
+  cursor: grab;
+  touch-action: none;           /* nécessaire pour le glisser-déposer au doigt */
+  opacity: 0;
+  transition: opacity .2s, background .2s;
+}
+.poignee svg { width: 10px; height: 16px; fill: currentColor; pointer-events: none; }
+.bloc:hover .poignee, .bloc.actif .poignee, .poignee:focus-visible { opacity: 1; }
+.poignee:hover { background: var(--survol); }
+@media (hover: none) { .poignee { opacity: .55; } }
+
+.contenu { flex: 1; min-width: 0; display: flex; align-items: flex-start; gap: 10px; padding-right: 8px; }
+
+.texte { flex: 1; min-width: 0; padding: 9px 0; outline: none; overflow-wrap: anywhere; }
+
+/* Types de blocs */
+.bloc-titre .texte { font-size: 1.75rem; font-weight: 800; line-height: 1.2; letter-spacing: -.02em; padding-top: 16px; }
+.bloc-sous_titre .texte { font-size: 1.3rem; font-weight: 700; line-height: 1.25; padding-top: 12px; }
+
+.bloc-citation .contenu {
+  margin: 4px 0;
+  padding: 2px 8px 2px 16px;
+  border-left: 4px solid var(--accent);
+  border-radius: 4px;
+  font-style: italic;
+  color: color-mix(in srgb, var(--texte) 85%, var(--accent));
+  transition: border-color .4s;
+}
+
+.puce, .numero { flex-shrink: 0; min-width: 22px; padding-top: 9px; text-align: center; color: var(--accent); font-weight: 700; }
+.numero { text-align: right; font-variant-numeric: tabular-nums; }
+
+.sep { flex: 1; display: flex; align-items: center; min-height: 44px; outline: none; cursor: pointer; }
+.sep hr { width: 100%; height: 3px; margin: 0; border: 0; border-radius: 3px; background: linear-gradient(90deg, var(--accent), var(--accent-2), transparent); opacity: .55; transition: opacity .2s; }
+.bloc.actif .sep hr, .sep:hover hr { opacity: 1; }
+
+/* Couleur de fond d'un bloc (choisie dans le menu ⋮⋮) */
+.bloc[data-teinte] { background: var(--teinte); }
+.bloc[data-teinte="jaune"]  { --teinte: rgba(255, 214, 10, .22); }
+.bloc[data-teinte="vert"]   { --teinte: rgba(48, 209, 88, .2); }
+.bloc[data-teinte="bleu"]   { --teinte: rgba(10, 132, 255, .18); }
+.bloc[data-teinte="rose"]   { --teinte: rgba(255, 55, 120, .17); }
+.bloc[data-teinte="violet"] { --teinte: rgba(150, 90, 255, .2); }
+
+/* Case à cocher dessinée en SVG (le trait se dessine quand on coche) */
+.case {
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  margin-top: 10px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border: 2px solid var(--discret);
+  border-radius: 8px;
+  background: transparent;
+  transition: background .25s, border-color .25s, transform .25s cubic-bezier(.3, 1.8, .5, 1), box-shadow .25s;
+}
+.case:hover { border-color: var(--accent); }
+.case:active { transform: scale(.85); }
+.case svg { width: 16px; height: 16px; fill: none; stroke: #fff; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
+.case path { stroke-dasharray: 24; stroke-dashoffset: 24; transition: stroke-dashoffset .3s .08s ease-out; }
+.case[aria-checked="true"] {
+  border-color: transparent;
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--accent) 45%, transparent);
+  transform: scale(1.08);
+  animation: pop .4s cubic-bezier(.3, 1.8, .5, 1);
+}
+.case[aria-checked="true"] path { stroke-dashoffset: 0; }
+
+.bloc.fait .texte { color: var(--discret); text-decoration: line-through; text-decoration-color: var(--accent); text-decoration-thickness: 2px; }
+.texte { transition: color .3s; }
+
+/* Animations des blocs */
+.bloc.entree { animation: bloc-entre .38s cubic-bezier(.2, .9, .3, 1.3); }
+.bloc.sortie { animation: bloc-sort .18s ease-in forwards; }
+
+/* Glisser-déposer */
+.bloc.deplace {
+  z-index: 30;
+  background: var(--carte);
+  box-shadow: var(--ombre);
+  transition: box-shadow .2s;
+  pointer-events: none;
+}
+body.glisse { cursor: grabbing; user-select: none; -webkit-user-select: none; }
+.bloc.cible-avant::before,
+#blocs.cible-fin::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: -3px;
+  height: 4px;
+  border-radius: 4px;
+  background: linear-gradient(90deg, var(--accent), var(--accent-2));
+  box-shadow: 0 0 12px var(--accent);
+  animation: pop .25s;
+}
+#blocs { position: relative; }
+#blocs.cible-fin::after { top: auto; bottom: -3px; }
+
+.ajouter-fin {
+  display: block;
+  width: 100%;
+  min-height: 48px;
+  margin-top: 10px;
+  border: 2px dashed var(--ligne);
+  border-radius: 14px;
+  background: none;
+  color: var(--discret);
+  transition: border-color .2s, color .2s, background .2s, transform .15s;
+}
+.ajouter-fin:hover { border-color: var(--accent); color: var(--accent); background: color-mix(in srgb, var(--accent) 6%, transparent); }
+.ajouter-fin:active { transform: scale(.98); }
+
+
+/* ---------- Barre du bas ---------- */
+.barre {
+  position: fixed;
+  left: 50%;
+  bottom: calc(14px + env(safe-area-inset-bottom) + var(--clavier));
+  z-index: 25;
+  display: flex;
+  gap: 4px;
+  max-width: calc(100vw - 24px);
+  padding: 6px;
+  border: 1px solid var(--ligne);
+  border-radius: 20px;
+  background: color-mix(in srgb, var(--carte) 88%, transparent);
+  backdrop-filter: blur(14px);
+  box-shadow: var(--ombre);
+  transform: translateX(-50%);
+  animation: barre-monte .6s .2s cubic-bezier(.2, .9, .3, 1.2) both;
+}
+@media (min-width: 861px) { .barre { left: calc(50% + 145px); } }
+
+.barre button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  min-width: 56px;
+  min-height: 52px;
+  padding: 4px 10px;
+  border: 0;
+  border-radius: 14px;
+  background: none;
+  font-size: .72rem;
+  color: var(--discret);
+  transition: background .2s, color .2s, transform .15s;
+}
+.barre button span { font-size: 1.05rem; font-weight: 700; color: var(--accent); line-height: 1.2; }
+.barre button:hover { background: var(--survol); color: var(--texte); }
+.barre button:active { transform: scale(.9); background: color-mix(in srgb, var(--accent) 18%, transparent); }
+.barre .plus { flex-direction: row; font-size: .85rem; font-weight: 600; color: #fff; background: linear-gradient(135deg, var(--accent), var(--accent-2)); }
+.barre .plus:hover { color: #fff; filter: brightness(1.08); }
+
+@media (max-width: 420px) {
+  .barre button { min-width: 0; flex: 1; padding: 4px 6px; }
+}
+
+
+/* ---------- Menus flottants ---------- */
+.menu {
+  position: fixed;
+  z-index: 50;
+  width: 270px;
+  max-height: min(70vh, 420px);
+  overflow-y: auto;
+  padding: 6px;
+  border: 1px solid var(--ligne);
+  border-radius: 16px;
+  background: var(--carte);
+  box-shadow: var(--ombre);
+  transform-origin: top left;
+  animation: menu-ouvre .18s cubic-bezier(.2, .9, .3, 1.2);
+}
+.menu[hidden] { display: none; }
+
+.menu-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 46px;
+  padding: 6px 10px;
+  border: 0;
+  border-radius: 10px;
+  background: none;
+  text-align: left;
+  transition: background .12s;
+}
+.menu-item.actif { background: color-mix(in srgb, var(--accent) 14%, transparent); }
+@media (hover: hover) { .menu-item:hover { background: color-mix(in srgb, var(--accent) 14%, transparent); } }
+.menu-item:disabled { opacity: .35; pointer-events: none; }
+.menu-item.danger { color: var(--danger); }
+.menu-item.danger:hover { background: color-mix(in srgb, var(--danger) 12%, transparent); }
+.menu-icone { display: grid; place-items: center; flex-shrink: 0; width: 32px; height: 32px; border-radius: 9px; background: var(--survol); font-weight: 700; font-size: .9rem; color: var(--accent); }
+.menu-texte { display: flex; flex-direction: column; line-height: 1.25; }
+.menu-texte strong { font-weight: 600; font-size: .95rem; }
+.menu-texte small { color: var(--discret); font-size: .78rem; }
+
+.menu-couleurs { display: flex; gap: 8px; padding: 8px 10px; }
+.pastille-bloc {
+  width: 28px;
+  height: 28px;
+  border: 2px solid var(--ligne);
+  border-radius: 50%;
+  background: var(--carte);
+  transition: transform .15s cubic-bezier(.3, 1.6, .5, 1);
+}
+.pastille-bloc[data-c="jaune"] { background: #ffd60a; }
+.pastille-bloc[data-c="vert"] { background: #30d158; }
+.pastille-bloc[data-c="bleu"] { background: #0a84ff; }
+.pastille-bloc[data-c="rose"] { background: #ff3778; }
+.pastille-bloc[data-c="violet"] { background: #965aff; }
+.pastille-bloc[data-c="aucune"] { background: linear-gradient(135deg, transparent 46%, var(--danger) 46% 54%, transparent 54%), var(--carte); }
+.pastille-bloc:hover { transform: scale(1.18); }
+.pastille-bloc.choisie { border-color: var(--texte); transform: scale(1.12); }
+
+/* Sur téléphone, les menus deviennent des feuilles qui montent du bas */
+@media (max-width: 640px) {
+  .menu {
+    left: 8px;
+    right: 8px;
+    top: auto !important;
+    bottom: calc(8px + env(safe-area-inset-bottom) + var(--clavier));
+    width: auto;
+    max-height: 62vh;
+    border-radius: 22px;
+    transform-origin: bottom center;
+    animation: feuille-monte .28s cubic-bezier(.2, .9, .3, 1.1);
+  }
+  .menu-item { min-height: 52px; }
+}
+
+
+/* ---------- Message en bas ---------- */
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(100px + env(safe-area-inset-bottom) + var(--clavier));
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  max-width: calc(100vw - 32px);
+  padding: 12px 18px;
+  border-radius: 14px;
+  background: #24223a;
+  color: #fff;
+  box-shadow: var(--ombre);
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-50%, 20px) scale(.95);
+  transition: opacity .25s, transform .3s cubic-bezier(.2, .9, .3, 1.3);
+}
+.toast.visible { opacity: 1; pointer-events: auto; transform: translate(-50%, 0) scale(1); }
+.toast button { min-height: 32px; padding: 0 12px; border: 0; border-radius: 8px; background: rgba(255, 255, 255, .16); font-weight: 700; color: #fff; }
+.toast button:hover { background: rgba(255, 255, 255, .26); }
+
+
+/* ---------- Confettis ---------- */
+.confetti {
+  position: fixed;
+  z-index: 70;
+  width: 8px;
+  height: 12px;
+  border-radius: 2px;
+  pointer-events: none;
+}
+
+
+/* ---------- Animations ---------- */
+@keyframes pop { 0% { transform: scale(.7); } 60% { transform: scale(1.2); } 100% { transform: scale(1.08); } }
+@keyframes bloc-entre { from { opacity: 0; transform: translateY(-10px) scale(.97); } to { opacity: 1; transform: none; } }
+@keyframes bloc-sort { to { opacity: 0; transform: translateX(30px) scale(.95); } }
+@keyframes menu-ouvre { from { opacity: 0; transform: scale(.92) translateY(-6px); } to { opacity: 1; transform: none; } }
+@keyframes feuille-monte { from { opacity: 0; transform: translateY(40px); } to { opacity: 1; transform: none; } }
+@keyframes barre-monte { from { opacity: 0; transform: translate(-50%, 40px); } to { opacity: 1; transform: translate(-50%, 0); } }
+
+</style>
+</head>
+<body data-couleur="violet">
+
+  <div class="app">
+
+    <!-- ===== Menu latéral : les pages ===== -->
+    <aside class="lateral" id="menu-lateral" aria-label="Pages">
+      <div class="lateral-tete">
+        <span class="logo" aria-hidden="true">▦</span>
+        <strong>Mes blocs</strong>
+      </div>
+
+      <input id="recherche" class="recherche" type="search" placeholder="Rechercher une page…" aria-label="Rechercher">
+
+      <nav id="liste-pages" class="liste-pages"></nav>
+
+      <button type="button" id="nouvelle-page" class="btn-nouvelle">＋ Nouvelle page</button>
+
+      <div class="lateral-pied">
+        <button type="button" id="installer" class="btn-doux" hidden>📲 Installer l'appli</button>
+        <button type="button" id="theme" class="btn-doux">🌗 Thème : auto</button>
+      </div>
+    </aside>
+
+    <div class="voile" id="voile"></div>
+
+    <!-- ===== Zone principale ===== -->
+    <div class="principal">
+      <header class="haut">
+        <button type="button" id="ouvrir-menu" class="btn-menu" aria-label="Ouvrir le menu des pages">☰</button>
+        <strong>Mes blocs</strong>
+      </header>
+
+      <main class="page" id="page">
+        <div class="bandeau" aria-hidden="true"></div>
+
+        <div class="entete">
+          <button type="button" id="icone-page" class="icone-page" aria-label="Changer l'icône de la page">📝</button>
+          <h1 id="titre-page" contenteditable="true" data-placeholder="Sans titre" role="textbox" aria-label="Titre de la page"></h1>
+
+          <div class="couleurs" id="couleurs-page" role="group" aria-label="Couleur de la page"></div>
+
+          <div class="progres" id="progres" hidden>
+            <div class="progres-barre"><span id="progres-rempli"></span></div>
+            <span id="progres-texte"></span>
+          </div>
+        </div>
+
+        <!-- Les blocs sont créés ici par js/editor.js -->
+        <div id="blocs"></div>
+
+        <button type="button" id="ajouter-fin" class="ajouter-fin">＋ Ajouter un bloc</button>
+      </main>
+    </div>
+  </div>
+
+  <!-- Barre du bas : ajoute un bloc sous celui où tu écris -->
+  <nav class="barre" aria-label="Ajouter un bloc">
+    <button type="button" data-type="paragraphe"><span>¶</span>Texte</button>
+    <button type="button" data-type="titre"><span>H1</span>Titre</button>
+    <button type="button" data-type="tache"><span>☑</span>Tâche</button>
+    <button type="button" data-type="liste"><span>•</span>Liste</button>
+    <button type="button" id="plus-types" class="plus">＋ Plus</button>
+  </nav>
+
+  <!-- Menus flottants et message -->
+  <div id="menu-types" class="menu" role="menu" hidden></div>
+  <div id="menu-bloc" class="menu" role="menu" hidden></div>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script>
+"use strict";
+
+/* =====================================================
+   store.js : les données de l'appli
+   Une appli = plusieurs pages. Une page = une liste de blocs.
+   ===================================================== */
+
+// Espace de noms partagé par tous les fichiers
+const App = {};
+
+App.CLE = "gestionnaire-blocs-v2";
+App.ANCIENNE_CLE = "gestionnaire-blocs-v1";
+
+App.COULEURS_PAGE = ["violet", "bleu", "vert", "orange", "rose", "turquoise"];
+App.COULEURS_BLOC = ["jaune", "vert", "bleu", "rose", "violet"];
+App.ICONES = ["📝", "📚", "💡", "🎯", "🏠", "💼", "🎓", "🛒", "🎮", "🚀"];
+
+// Tous les types de blocs disponibles (menu "/" et menu du bloc)
+App.TYPES = {
+  paragraphe: { nom: "Texte", icone: "¶", aide: "Du texte simple", cles: ["texte", "paragraphe", "text"], placeholder: "Écris, ou tape « / » pour les blocs" },
+  titre: { nom: "Titre 1", icone: "H1", aide: "Un grand titre", cles: ["titre", "h1", "heading"], placeholder: "Titre 1" },
+  sous_titre: { nom: "Titre 2", icone: "H2", aide: "Un titre de section", cles: ["titre", "sous", "h2"], placeholder: "Titre 2" },
+  tache: { nom: "Tâche", icone: "☑", aide: "Avec une case à cocher", cles: ["tache", "todo", "cocher", "checkbox"], placeholder: "À faire…" },
+  liste: { nom: "Liste à puces", icone: "•", aide: "Une liste simple", cles: ["liste", "puces", "bullet"], placeholder: "Élément de liste" },
+  numerotee: { nom: "Liste numérotée", icone: "1.", aide: "Une liste ordonnée", cles: ["liste", "numero", "numerotee", "number"], placeholder: "Élément numéroté" },
+  citation: { nom: "Citation", icone: "❝", aide: "Pour mettre une idée en avant", cles: ["citation", "quote"], placeholder: "Citation…" },
+  separateur: { nom: "Séparateur", icone: "—", aide: "Une ligne de séparation", cles: ["separateur", "ligne", "divider", "hr"], placeholder: "" },
+};
+
+// Ces types gardent leur forme quand on appuie sur Entrée
+App.TYPES_LISTE = ["tache", "liste", "numerotee"];
+
+
+/* ---------- Fabriques ---------- */
+
+App.id = function () {
+  return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+};
+
+App.nouveauBloc = function (type, texte) {
+  const bloc = { id: App.id(), type: type || "paragraphe", texte: texte || "", niveau: 0, couleur: "" };
+  if (bloc.type === "tache") bloc.fait = false;
+  return bloc;
+};
+
+App.nouvellePage = function (titre, couleur, icone) {
+  return {
+    id: App.id(),
+    titre: titre || "",
+    icone: icone || "📝",
+    couleur: couleur || "violet",
+    blocs: [App.nouveauBloc("paragraphe")],
+  };
+};
+
+
+/* ---------- Pages d'exemple (premier lancement) ---------- */
+
+App.demo = function () {
+  const b = (type, texte, niveau, fait) => {
+    const bloc = App.nouveauBloc(type, texte);
+    bloc.niveau = niveau || 0;
+    if (type === "tache") bloc.fait = !!fait;
+    return bloc;
+  };
+
+  const accueil = {
+    id: App.id(),
+    titre: "Bienvenue",
+    icone: "👋",
+    couleur: "violet",
+    blocs: [
+      b("paragraphe", "Chaque ligne est un bloc. Appuie sur Entrée pour en créer un, ou tape « / » pour choisir son type."),
+      b("sous_titre", "Essaie ces gestes"),
+      b("tache", "Cocher cette tâche (regarde la barre de progression)"),
+      b("tache", "Taper « / » pour changer le type d'un bloc"),
+      b("tache", "Décaler un bloc avec Tab (ou le menu ⋮⋮)", 1),
+      b("tache", "Glisser un bloc avec les points ⋮⋮ à gauche"),
+      b("tache", "Changer la couleur d'une page avec les pastilles en haut"),
+      b("citation", "Astuce : « - », « [] », « # », « > » et « 1. » en début de ligne créent des blocs."),
+      b("separateur", ""),
+      b("liste", "Tout est sauvegardé automatiquement sur ton appareil"),
+      b("liste", "Tu peux installer l'appli sur ton téléphone"),
+    ],
+  };
+
+  const projets = {
+    id: App.id(),
+    titre: "Mes projets",
+    icone: "🚀",
+    couleur: "bleu",
+    blocs: [
+      b("tache", "Finir mon gestionnaire de blocs", 0, true),
+      b("tache", "Le publier sur GitHub Pages"),
+      b("tache", "L'installer sur mon téléphone"),
+    ],
+  };
+
+  return { pages: [accueil, projets], courante: accueil.id, theme: "auto" };
+};
+
+
+/* ---------- Chargement et sauvegarde ---------- */
+
+// Vérifie et complète les données (utile si elles viennent d'une ancienne version)
+App.normaliser = function (etat) {
+  const pages = Array.isArray(etat.pages) ? etat.pages : [];
+  pages.forEach((p) => {
+    p.id = p.id || App.id();
+    p.titre = typeof p.titre === "string" ? p.titre : "";
+    p.icone = p.icone || "📝";
+    if (!App.COULEURS_PAGE.includes(p.couleur)) p.couleur = "violet";
+    if (!Array.isArray(p.blocs) || p.blocs.length === 0) p.blocs = [App.nouveauBloc("paragraphe")];
+    p.blocs.forEach((bloc) => {
+      bloc.id = bloc.id || App.id();
+      if (!App.TYPES[bloc.type]) bloc.type = "paragraphe";
+      bloc.texte = typeof bloc.texte === "string" ? bloc.texte : "";
+      bloc.niveau = Math.max(0, Math.min(3, Number(bloc.niveau) || 0));
+      if (!App.COULEURS_BLOC.includes(bloc.couleur)) bloc.couleur = "";
+      if (bloc.type === "tache") bloc.fait = !!bloc.fait;
+      else delete bloc.fait;
+    });
+  });
+  if (pages.length === 0) return App.demo();
+  const courante = pages.some((p) => p.id === etat.courante) ? etat.courante : pages[0].id;
+  const theme = ["auto", "clair", "sombre"].includes(etat.theme) ? etat.theme : "auto";
+  return { pages: pages, courante: courante, theme: theme };
+};
+
+function charger() {
+  try {
+    const brut = localStorage.getItem(App.CLE);
+    if (brut) return App.normaliser(JSON.parse(brut));
+
+    // Migration : on récupère la page de la version 1 si elle existe
+    const ancien = localStorage.getItem(App.ANCIENNE_CLE);
+    if (ancien) {
+      const v1 = JSON.parse(ancien);
+      return App.normaliser({ pages: [{ titre: v1.titre, blocs: v1.blocs }] });
+    }
+  } catch (erreur) {
+    // données absentes ou abîmées : on repart des pages d'exemple
+  }
+  return App.demo();
+}
+
+App.etat = charger();
+
+App.sauver = function () {
+  try {
+    localStorage.setItem(App.CLE, JSON.stringify(App.etat));
+  } catch (erreur) {
+    // stockage indisponible (navigation privée, par exemple) : on ignore
+  }
+};
+
+App.page = function () {
+  return App.etat.pages.find((p) => p.id === App.etat.courante) || App.etat.pages[0];
+};
+
+</script>
+  <script>
+"use strict";
+
+/* =====================================================
+   outils.js : petits outils (recherche, messages, confettis, thème)
+   ===================================================== */
+
+// Minuscules et sans accents : "Écrire" et "ecrire" se valent pour la recherche
+App.simplifier = function (texte) {
+  return String(texte || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "");
+};
+
+App.mouvementReduit = function () {
+  return !!(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+};
+
+
+/* ---------- Message en bas d'écran (avec bouton Annuler) ---------- */
+
+App.Toast = (function () {
+  const el = document.getElementById("toast");
+  let minuteur = null;
+
+  function fermer() {
+    clearTimeout(minuteur);
+    el.classList.remove("visible");
+  }
+
+  function afficher(message, options) {
+    options = options || {};
+    clearTimeout(minuteur);
+
+    const texte = document.createElement("span");
+    texte.textContent = message;
+    el.replaceChildren(texte);
+
+    if (options.action) {
+      const bouton = document.createElement("button");
+      bouton.type = "button";
+      bouton.textContent = options.action;
+      bouton.addEventListener("click", () => {
+        fermer();
+        if (options.surAction) options.surAction();
+      });
+      el.append(bouton);
+    }
+
+    el.classList.remove("visible");
+    void el.offsetWidth; // relance l'animation
+    el.classList.add("visible");
+    minuteur = setTimeout(fermer, options.duree || 5000);
+  }
+
+  return { afficher: afficher, fermer: fermer };
+})();
+
+
+/* ---------- Confettis (cochage d'une tâche, page terminée) ---------- */
+
+App.confettis = function (element, nombre) {
+  if (App.mouvementReduit() || !element) return;
+  const total = nombre || 14;
+  const rect = element.getBoundingClientRect();
+  const cx = rect.left + Math.min(rect.width, 40) / 2;
+  const cy = rect.top + rect.height / 2;
+  const couleurs = ["#7c5cff", "#4ea1ff", "#3ecf8e", "#f7c948", "#ff6b9d", "#ff7a1a"];
+
+  for (let i = 0; i < total; i++) {
+    const p = document.createElement("span");
+    p.className = "confetti";
+    p.style.left = cx + "px";
+    p.style.top = cy + "px";
+    p.style.background = couleurs[i % couleurs.length];
+    document.body.append(p);
+
+    if (!p.animate) { p.remove(); continue; }
+
+    const angle = (Math.PI * 2 * i) / total + Math.random() * 0.6;
+    const distance = 30 + Math.random() * (total > 14 ? 90 : 40);
+    const dx = Math.cos(angle) * distance;
+    const dy = Math.sin(angle) * distance + 20;
+    const animation = p.animate(
+      [
+        { transform: "translate(-50%, -50%) scale(1) rotate(0deg)", opacity: 1 },
+        { transform: "translate(calc(-50% + " + dx + "px), calc(-50% + " + dy + "px)) scale(.4) rotate(" + Math.round(Math.random() * 360) + "deg)", opacity: 0 },
+      ],
+      { duration: 600 + Math.random() * 300, easing: "cubic-bezier(.2,.8,.3,1)" }
+    );
+    animation.onfinish = () => p.remove();
+  }
+};
+
+
+/* ---------- Thème : auto, clair, sombre ---------- */
+
+App.appliquerTheme = function () {
+  const theme = App.etat.theme;
+  const racine = document.documentElement;
+  if (theme === "auto") racine.removeAttribute("data-theme");
+  else racine.dataset.theme = theme;
+
+  const bouton = document.getElementById("theme");
+  if (bouton) {
+    const libelles = { auto: "🌗 Thème : auto", clair: "☀️ Thème : clair", sombre: "🌙 Thème : sombre" };
+    bouton.textContent = libelles[theme];
+  }
+};
+
+App.changerTheme = function () {
+  const ordre = ["auto", "clair", "sombre"];
+  App.etat.theme = ordre[(ordre.indexOf(App.etat.theme) + 1) % ordre.length];
+  App.sauver();
+  App.appliquerTheme();
+};
+
+</script>
+  <script>
+"use strict";
+
+/* =====================================================
+   editor.js : l'éditeur de blocs
+   Affichage, clavier, raccourcis, indentation, glisser-déposer
+   ===================================================== */
+
+(function () {
+  const conteneur = document.getElementById("blocs");
+  let dernierId = null; // dernier bloc dans lequel on a écrit
+
+  // Raccourcis Markdown : on tape le début, le bloc change de type
+  const RACCOURCIS = [
+    [/^#[  ]/, "titre"],
+    [/^##[  ]/, "sous_titre"],
+    [/^(\[\]|\[[  ]\])[  ]/, "tache"],
+    [/^[-*][  ]/, "liste"],
+    [/^1\.[  ]/, "numerotee"],
+    [/^>[  ]/, "citation"],
+  ];
+
+  const blocs = () => App.page().blocs;
+  const index = (id) => blocs().findIndex((b) => b.id === id);
+  const lire = (zone) => zone.textContent.replace(/ /g, " ");
+
+  function changerType(bloc, type) {
+    bloc.type = type;
+    if (type === "tache") bloc.fait = !!bloc.fait;
+    else delete bloc.fait;
+    if (type === "separateur") bloc.texte = "";
+  }
+
+  function insererApres(id, bloc) {
+    const i = index(id);
+    if (i === -1) blocs().push(bloc);
+    else blocs().splice(i + 1, 0, bloc);
+  }
+
+
+  /* ---------- Affichage ---------- */
+
+  // Reconstruit tous les blocs. idFocus : bloc où placer le curseur.
+  // position : "debut", "fin" ou un nombre. idAnime : bloc qui "pop" à l'écran.
+  function afficher(idFocus, position, idAnime) {
+    const compteurs = {};
+    const lignes = blocs().map((bloc) => {
+      let numero = 0;
+      if (bloc.type === "numerotee") {
+        compteurs[bloc.niveau] = (compteurs[bloc.niveau] || 0) + 1;
+        numero = compteurs[bloc.niveau];
+        Object.keys(compteurs).forEach((n) => { if (+n > bloc.niveau) delete compteurs[n]; });
+      } else {
+        Object.keys(compteurs).forEach((n) => { if (+n >= bloc.niveau) delete compteurs[n]; });
+      }
+      return creerLigne(bloc, numero, bloc.id === idAnime);
+    });
+    conteneur.replaceChildren(...lignes);
+    App.sauver();
+    App.majProgres(false);
+    if (idFocus) focaliser(idFocus, position);
+  }
+  App.afficherBlocs = afficher;
+
+  function creerLigne(bloc, numero, anime) {
+    const ligne = document.createElement("div");
+    ligne.className = "bloc bloc-" + bloc.type;
+    ligne.dataset.id = bloc.id;
+    ligne.dataset.niveau = bloc.niveau;
+    ligne.style.setProperty("--niveau", bloc.niveau);
+    if (bloc.couleur) ligne.dataset.teinte = bloc.couleur;
+    if (bloc.fait) ligne.classList.add("fait");
+    if (anime && !App.mouvementReduit()) ligne.classList.add("entree");
+
+    // Poignée : glisser pour déplacer, toucher pour ouvrir les options
+    const poignee = document.createElement("button");
+    poignee.type = "button";
+    poignee.className = "poignee";
+    poignee.innerHTML = '<svg viewBox="0 0 10 16" aria-hidden="true"><circle cx="2.5" cy="3" r="1.5"/><circle cx="7.5" cy="3" r="1.5"/><circle cx="2.5" cy="8" r="1.5"/><circle cx="7.5" cy="8" r="1.5"/><circle cx="2.5" cy="13" r="1.5"/><circle cx="7.5" cy="13" r="1.5"/></svg>';
+    poignee.setAttribute("aria-label", "Options du bloc (glisser pour déplacer)");
+    poignee.addEventListener("pointerdown", (e) => glisser(e, bloc.id, ligne, poignee));
+    ligne.append(poignee);
+
+    const contenu = document.createElement("div");
+    contenu.className = "contenu";
+
+    // Marque à gauche selon le type
+    if (bloc.type === "tache") {
+      const caseACocher = document.createElement("button");
+      caseACocher.type = "button";
+      caseACocher.className = "case";
+      caseACocher.setAttribute("role", "checkbox");
+      caseACocher.setAttribute("aria-checked", String(!!bloc.fait));
+      caseACocher.setAttribute("aria-label", "Tâche terminée");
+      caseACocher.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
+      caseACocher.addEventListener("click", () => {
+        bloc.fait = !bloc.fait;
+        ligne.classList.toggle("fait", bloc.fait);
+        caseACocher.setAttribute("aria-checked", String(bloc.fait));
+        App.sauver();
+        App.majProgres(true);
+        if (bloc.fait) App.confettis(caseACocher, 14);
+      });
+      contenu.append(caseACocher);
+    } else if (bloc.type === "liste") {
+      const puce = document.createElement("span");
+      puce.className = "puce";
+      puce.textContent = "•";
+      contenu.append(puce);
+    } else if (bloc.type === "numerotee") {
+      const num = document.createElement("span");
+      num.className = "numero";
+      num.textContent = numero + ".";
+      contenu.append(num);
+    }
+
+    if (bloc.type === "separateur") {
+      const sep = document.createElement("div");
+      sep.className = "sep champ";
+      sep.tabIndex = 0;
+      sep.setAttribute("aria-label", "Séparateur");
+      sep.append(document.createElement("hr"));
+      sep.addEventListener("focus", () => { dernierId = bloc.id; ligne.classList.add("actif"); });
+      sep.addEventListener("blur", () => ligne.classList.remove("actif"));
+      sep.addEventListener("keydown", (e) => gererSeparateur(e, bloc));
+      contenu.append(sep);
+    } else {
+      contenu.append(creerZone(bloc, ligne));
+    }
+
+    ligne.append(contenu);
+    return ligne;
+  }
+
+  function creerZone(bloc, ligne) {
+    const zone = document.createElement("div");
+    zone.className = "texte champ";
+    zone.contentEditable = "true";
+    zone.setAttribute("role", "textbox");
+    zone.setAttribute("aria-label", App.TYPES[bloc.type].nom);
+    zone.dataset.placeholder = App.TYPES[bloc.type].placeholder;
+    zone.textContent = bloc.texte; // textContent : jamais de HTML injecté
+
+    zone.addEventListener("focus", () => { dernierId = bloc.id; ligne.classList.add("actif"); });
+    zone.addEventListener("blur", () => ligne.classList.remove("actif"));
+
+    zone.addEventListener("input", () => {
+      bloc.texte = lire(zone);
+      if (bloc.texte === "") zone.innerHTML = ""; // retire le <br> laissé par le navigateur
+
+      // Raccourcis Markdown ("- " devient une liste, etc.)
+      if (bloc.type === "paragraphe") {
+        for (const [regle, type] of RACCOURCIS) {
+          if (regle.test(bloc.texte)) {
+            bloc.texte = bloc.texte.replace(regle, "");
+            changerType(bloc, type);
+            afficher(bloc.id, "fin");
+            return;
+          }
+        }
+      }
+
+      // Menu "/" : s'ouvre quand le bloc contient seulement "/mot"
+      const slash = /^\/([^\s]*)$/.exec(bloc.texte);
+      if (slash) {
+        App.MenuTypes.ouvrir(ligne, slash[1], (type) => {
+          bloc.texte = "";
+          changerType(bloc, type);
+          afficher(bloc.id, "fin");
+        }, "slash");
+      } else if (App.MenuTypes.ouvert() && App.MenuTypes.origine() === "slash") {
+        App.MenuTypes.fermer();
+      }
+
+      App.sauver();
+    });
+
+    zone.addEventListener("keydown", (e) => gererTouche(e, bloc, zone));
+
+    // Collage en texte brut. Plusieurs lignes collées = plusieurs blocs.
+    zone.addEventListener("paste", (e) => {
+      e.preventDefault();
+      const brut = (e.clipboardData || window.clipboardData).getData("text/plain").replace(/\r/g, "");
+      const lignes = brut.split("\n");
+      document.execCommand("insertText", false, lignes[0]);
+      if (lignes.length > 1) {
+        bloc.texte = lire(zone);
+        const type = App.TYPES_LISTE.includes(bloc.type) ? bloc.type : "paragraphe";
+        let precedent = bloc.id;
+        lignes.slice(1).filter((l) => l.trim() !== "").forEach((l) => {
+          const nouveau = App.nouveauBloc(type, l.trim());
+          nouveau.niveau = bloc.niveau;
+          insererApres(precedent, nouveau);
+          precedent = nouveau.id;
+        });
+        afficher(precedent, "fin");
+      }
+    });
+
+    return zone;
+  }
+
+
+  /* ---------- Curseur ---------- */
+
+  // Positions de début et de fin de la sélection, comptées en caractères
+  function positionCurseur(zone) {
+    const sel = window.getSelection();
+    const longueur = zone.textContent.length;
+    if (!sel || sel.rangeCount === 0 || !zone.contains(sel.anchorNode)) {
+      return { debut: longueur, fin: longueur, longueur: longueur };
+    }
+    const r = sel.getRangeAt(0);
+    const avantDebut = document.createRange();
+    avantDebut.selectNodeContents(zone);
+    avantDebut.setEnd(r.startContainer, r.startOffset);
+    const avantFin = document.createRange();
+    avantFin.selectNodeContents(zone);
+    avantFin.setEnd(r.endContainer, r.endOffset);
+    return { debut: avantDebut.toString().length, fin: avantFin.toString().length, longueur: longueur };
+  }
+
+  function focaliser(id, position) {
+    const champ = conteneur.querySelector('.bloc[data-id="' + id + '"] .champ');
+    if (!champ) return;
+    champ.focus();
+    if (champ.classList.contains("sep")) return;
+
+    const noeud = champ.firstChild;
+    const plage = document.createRange();
+    if (!noeud) {
+      plage.selectNodeContents(champ);
+    } else {
+      const longueur = noeud.textContent.length;
+      let n = longueur;
+      if (position === "debut") n = 0;
+      else if (typeof position === "number") n = Math.min(position, longueur);
+      plage.setStart(noeud, n);
+    }
+    plage.collapse(true);
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(plage);
+  }
+
+  function voisin(id, delta) {
+    return blocs()[index(id) + delta];
+  }
+
+
+  /* ---------- Clavier ---------- */
+
+  function gererTouche(e, bloc, zone) {
+    const menu = App.MenuTypes;
+
+    // Navigation dans le menu "/"
+    if (menu.ouvert() && menu.origine() === "slash") {
+      if (e.key === "ArrowDown") { e.preventDefault(); menu.bouger(1); return; }
+      if (e.key === "ArrowUp") { e.preventDefault(); menu.bouger(-1); return; }
+      if (e.key === "Enter" || e.key === "Tab") { e.preventDefault(); menu.valider(); return; }
+      if (e.key === "Escape") { e.preventDefault(); menu.fermer(); return; }
+    }
+
+    const pos = positionCurseur(zone);
+
+    // Entrée : nouveau bloc (coupe le texte à l'endroit du curseur)
+    if (e.key === "Enter") {
+      e.preventDefault();
+
+      // "---" puis Entrée : séparateur
+      if (bloc.texte.trim() === "---") {
+        changerType(bloc, "separateur");
+        const suite = App.nouveauBloc("paragraphe");
+        insererApres(bloc.id, suite);
+        afficher(suite.id, "debut", bloc.id);
+        return;
+      }
+
+      // Entrée sur une liste ou une tâche vide : on en sort (comme Notion)
+      const vide = bloc.texte === "";
+      if (vide && (App.TYPES_LISTE.includes(bloc.type) || bloc.type === "citation")) {
+        if (bloc.niveau > 0) bloc.niveau--;
+        else changerType(bloc, "paragraphe");
+        afficher(bloc.id, "fin");
+        return;
+      }
+
+      const avant = bloc.texte.slice(0, pos.debut);
+      const apres = bloc.texte.slice(pos.fin);
+      bloc.texte = avant;
+      const type = App.TYPES_LISTE.includes(bloc.type) ? bloc.type : "paragraphe";
+      const nouveau = App.nouveauBloc(type, apres);
+      nouveau.niveau = bloc.niveau;
+      insererApres(bloc.id, nouveau);
+      afficher(nouveau.id, "debut", nouveau.id);
+      return;
+    }
+
+    // Tab / Maj+Tab : décaler le bloc
+    if (e.key === "Tab") {
+      e.preventDefault();
+      if (App.indenter(bloc.id, e.shiftKey ? -1 : 1)) afficher(bloc.id, pos.debut);
+      return;
+    }
+
+    // Retour arrière au début d'un bloc
+    if (e.key === "Backspace" && pos.debut === 0 && pos.fin === 0) {
+      if (bloc.niveau > 0) {
+        e.preventDefault();
+        bloc.niveau--;
+        afficher(bloc.id, 0);
+        return;
+      }
+      if (bloc.type !== "paragraphe") {
+        e.preventDefault();
+        changerType(bloc, "paragraphe");
+        afficher(bloc.id, 0);
+        return;
+      }
+      const i = index(bloc.id);
+      if (i > 0) {
+        e.preventDefault();
+        const precedent = blocs()[i - 1];
+        if (precedent.type === "separateur") {
+          blocs().splice(i - 1, 1);
+          afficher(bloc.id, 0);
+        } else {
+          const longueur = precedent.texte.length;
+          precedent.texte += bloc.texte;
+          blocs().splice(i, 1);
+          afficher(precedent.id, longueur);
+        }
+      }
+      return;
+    }
+
+    // Flèches : passer d'un bloc à l'autre
+    if (e.key === "ArrowUp" && pos.debut === 0 && pos.fin === 0 && !e.shiftKey) {
+      const v = voisin(bloc.id, -1);
+      if (v) { e.preventDefault(); focaliser(v.id, "fin"); }
+    }
+    if (e.key === "ArrowDown" && pos.debut === pos.longueur && pos.fin === pos.longueur && !e.shiftKey) {
+      const v = voisin(bloc.id, 1);
+      if (v) { e.preventDefault(); focaliser(v.id, "debut"); }
+    }
+  }
+
+  function gererSeparateur(e, bloc) {
+    if (e.key === "Backspace" || e.key === "Delete") {
+      e.preventDefault();
+      App.supprimerBloc(bloc.id);
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      const suite = App.nouveauBloc("paragraphe");
+      insererApres(bloc.id, suite);
+      afficher(suite.id, "fin", suite.id);
+    } else if (e.key === "ArrowUp" || e.key === "ArrowDown") {
+      const v = voisin(bloc.id, e.key === "ArrowUp" ? -1 : 1);
+      if (v) { e.preventDefault(); focaliser(v.id, e.key === "ArrowUp" ? "fin" : "debut"); }
+    }
+  }
+
+
+  /* ---------- Actions sur les blocs (aussi utilisées par les menus) ---------- */
+
+  // Ajoute un bloc du type donné sous le bloc en cours
+  App.ajouterBloc = function (type) {
+    const courant = blocs().find((b) => b.id === dernierId);
+
+    // Un paragraphe vide est simplement transformé, pour ne pas empiler des blocs vides
+    if (courant && courant.type === "paragraphe" && courant.texte === "" && type !== "separateur") {
+      changerType(courant, type);
+      afficher(courant.id, "fin", courant.id);
+      return;
+    }
+
+    const nouveau = App.nouveauBloc(type);
+    if (courant && (App.TYPES_LISTE.includes(type))) nouveau.niveau = courant.niveau;
+    if (courant) insererApres(courant.id, nouveau);
+    else blocs().push(nouveau);
+
+    if (type === "separateur") {
+      const suite = App.nouveauBloc("paragraphe");
+      insererApres(nouveau.id, suite);
+      afficher(suite.id, "fin", nouveau.id);
+    } else {
+      afficher(nouveau.id, "fin", nouveau.id);
+    }
+  };
+
+  App.convertir = function (id, type) {
+    const bloc = blocs()[index(id)];
+    if (!bloc) return;
+    changerType(bloc, type);
+    afficher(null, null, id);
+  };
+
+  // Décale le bloc vers la droite (delta = 1) ou la gauche (delta = -1)
+  App.indenter = function (id, delta) {
+    const i = index(id);
+    const bloc = blocs()[i];
+    if (!bloc) return false;
+    const maximum = i === 0 ? 0 : Math.min(3, blocs()[i - 1].niveau + 1);
+    const niveau = Math.max(0, Math.min(maximum, bloc.niveau + delta));
+    if (niveau === bloc.niveau) return false;
+    bloc.niveau = niveau;
+    return true;
+  };
+
+  App.decaler = function (id, delta) {
+    if (App.indenter(id, delta)) afficher(null, null, id);
+  };
+
+  App.deplacer = function (id, delta) {
+    const bl = blocs();
+    const i = index(id);
+    const j = i + delta;
+    if (i === -1 || j < 0 || j >= bl.length) return;
+    const [bloc] = bl.splice(i, 1);
+    bl.splice(j, 0, bloc);
+    afficher(null, null, id);
+  };
+
+  App.dupliquer = function (id) {
+    const i = index(id);
+    if (i === -1) return;
+    const copie = JSON.parse(JSON.stringify(blocs()[i]));
+    copie.id = App.id();
+    blocs().splice(i + 1, 0, copie);
+    afficher(null, null, copie.id);
+  };
+
+  App.colorer = function (id, couleur) {
+    const bloc = blocs()[index(id)];
+    if (!bloc) return;
+    bloc.couleur = couleur || "";
+    afficher(null, null, id);
+  };
+
+  // Supprime un bloc avec une petite animation et un bouton Annuler
+  App.supprimerBloc = function (id) {
+    const bl = blocs();
+    const i = index(id);
+    if (i === -1) return;
+    const supprime = bl[i];
+    const etaitSeul = bl.length === 1;
+    const ligne = conteneur.querySelector('.bloc[data-id="' + id + '"]');
+
+    const terminer = () => {
+      bl.splice(i, 1);
+      if (bl.length === 0) bl.push(App.nouveauBloc("paragraphe"));
+      const cible = bl[i - 1] || bl[0];
+      afficher(cible.id, "fin");
+      App.Toast.afficher("Bloc supprimé", {
+        action: "Annuler",
+        surAction: () => {
+          if (etaitSeul) bl.splice(0, bl.length);
+          bl.splice(Math.min(i, bl.length), 0, supprime);
+          afficher(supprime.id, "fin", supprime.id);
+        },
+      });
+    };
+
+    if (ligne && !App.mouvementReduit()) {
+      ligne.classList.add("sortie");
+      setTimeout(terminer, 180);
+    } else {
+      terminer();
+    }
+  };
+
+
+  /* ---------- Glisser-déposer (souris et doigt) ---------- */
+
+  function glisser(e, id, ligne, poignee) {
+    if (e.button) return; // clic droit ou autre : on ignore
+    e.preventDefault();
+    poignee.setPointerCapture(e.pointerId);
+
+    const departY = e.clientY;
+    const departDefilement = window.scrollY;
+    let bouge = false;
+    let cible = null; // bloc devant lequel on insère (null = à la fin)
+
+    const autres = () => [...conteneur.querySelectorAll(".bloc")].filter((l) => l !== ligne);
+    const nettoyer = () => {
+      conteneur.querySelectorAll(".cible-avant").forEach((l) => l.classList.remove("cible-avant"));
+      conteneur.classList.remove("cible-fin");
+      ligne.classList.remove("deplace");
+      ligne.style.transform = "";
+      document.body.classList.remove("glisse");
+    };
+
+    function surMouvement(ev) {
+      const dy = ev.clientY - departY + (window.scrollY - departDefilement);
+      if (!bouge && Math.abs(dy) > 6) {
+        bouge = true;
+        ligne.classList.add("deplace");
+        document.body.classList.add("glisse");
+        App.MenuBloc.fermer();
+      }
+      if (!bouge) return;
+
+      ligne.style.transform = "translateY(" + dy + "px) scale(1.02)";
+      const r = ligne.getBoundingClientRect();
+      const centre = r.top + r.height / 2;
+
+      cible = null;
+      for (const l of autres()) {
+        const rr = l.getBoundingClientRect();
+        if (centre < rr.top + rr.height / 2) { cible = l; break; }
+      }
+      conteneur.querySelectorAll(".cible-avant").forEach((l) => l.classList.remove("cible-avant"));
+      conteneur.classList.remove("cible-fin");
+      if (cible) cible.classList.add("cible-avant");
+      else conteneur.classList.add("cible-fin");
+
+      // Défilement automatique près des bords de l'écran
+      if (ev.clientY < 90) window.scrollBy(0, -14);
+      else if (ev.clientY > window.innerHeight - 130) window.scrollBy(0, 14);
+    }
+
+    function terminer(ev, annule) {
+      poignee.removeEventListener("pointermove", surMouvement);
+      poignee.removeEventListener("pointerup", surFin);
+      poignee.removeEventListener("pointercancel", surAnnulation);
+      const idCible = cible ? cible.dataset.id : null;
+      nettoyer();
+
+      if (annule) return;
+      if (!bouge) {
+        App.MenuBloc.ouvrir(id, poignee); // simple toucher : menu du bloc
+        return;
+      }
+      const bl = blocs();
+      const [bloc] = bl.splice(index(id), 1);
+      const j = idCible ? bl.findIndex((b) => b.id === idCible) : -1;
+      if (j === -1) bl.push(bloc);
+      else bl.splice(j, 0, bloc);
+      afficher(null, null, id);
+    }
+    const surFin = (ev) => terminer(ev, false);
+    const surAnnulation = (ev) => terminer(ev, true);
+
+    poignee.addEventListener("pointermove", surMouvement);
+    poignee.addEventListener("pointerup", surFin);
+    poignee.addEventListener("pointercancel", surAnnulation);
+  }
+
+
+  /* ---------- Barre du bas et bouton "Ajouter un bloc" ---------- */
+
+  document.querySelectorAll(".barre [data-type]").forEach((bouton) => {
+    bouton.addEventListener("mousedown", (e) => e.preventDefault()); // garde le curseur dans le bloc
+    bouton.addEventListener("click", () => App.ajouterBloc(bouton.dataset.type));
+  });
+
+  const boutonPlus = document.getElementById("plus-types");
+  boutonPlus.addEventListener("mousedown", (e) => e.preventDefault());
+  boutonPlus.addEventListener("click", () => {
+    App.MenuTypes.ouvrir(boutonPlus, "", (type) => App.ajouterBloc(type), "inserer");
+  });
+
+  document.getElementById("ajouter-fin").addEventListener("click", () => {
+    const bl = blocs();
+    const dernier = bl[bl.length - 1];
+    if (dernier.type === "paragraphe" && dernier.texte === "") {
+      focaliser(dernier.id, "fin");
+    } else {
+      const nouveau = App.nouveauBloc("paragraphe");
+      bl.push(nouveau);
+      afficher(nouveau.id, "fin", nouveau.id);
+    }
+  });
+})();
+
+</script>
+  <script>
+"use strict";
+
+/* =====================================================
+   menus.js : le menu des types (« / ») et le menu d'un bloc (⋮⋮)
+   ===================================================== */
+
+/* ---------- Menu des types de blocs ---------- */
+
+App.MenuTypes = (function () {
+  const el = document.getElementById("menu-types");
+  const etat = { ouvert: false, origine: "slash", index: 0, items: [], rappel: null, filtre: "" };
+
+  function construire() {
+    const f = App.simplifier(etat.filtre);
+    etat.items = Object.keys(App.TYPES)
+      .map((cle) => Object.assign({ cle: cle }, App.TYPES[cle]))
+      .filter((t) => !f || App.simplifier(t.nom + " " + t.cles.join(" ")).includes(f));
+
+    if (etat.index >= etat.items.length) etat.index = 0;
+
+    el.replaceChildren(...etat.items.map((t, i) => {
+      const bouton = document.createElement("button");
+      bouton.type = "button";
+      bouton.className = "menu-item" + (i === etat.index ? " actif" : "");
+      bouton.innerHTML = '<span class="menu-icone"></span><span class="menu-texte"><strong></strong><small></small></span>';
+      bouton.querySelector(".menu-icone").textContent = t.icone;
+      bouton.querySelector("strong").textContent = t.nom;
+      bouton.querySelector("small").textContent = t.aide;
+      // Garde le curseur dans le bloc pendant qu'on choisit
+      bouton.addEventListener("mousedown", (e) => e.preventDefault());
+      bouton.addEventListener("click", () => choisir(i));
+      return bouton;
+    }));
+  }
+
+  function positionner(ancre) {
+    if (window.innerWidth <= 640) { // petit écran : le CSS en fait une feuille en bas
+      el.style.left = "";
+      el.style.top = "";
+      return;
+    }
+    const r = ancre.getBoundingClientRect();
+    const h = el.offsetHeight;
+    let haut = r.bottom + 6;
+    if (haut + h > window.innerHeight - 10) haut = Math.max(10, r.top - h - 6);
+    const gauche = Math.max(10, Math.min(r.left + 36, window.innerWidth - el.offsetWidth - 10));
+    el.style.top = haut + "px";
+    el.style.left = gauche + "px";
+  }
+
+  function ouvrir(ancre, filtre, rappel, origine) {
+    const nouvelle = !etat.ouvert || etat.origine !== (origine || "slash");
+    if (nouvelle || (filtre || "") !== etat.filtre) etat.index = 0;
+    etat.origine = origine || "slash";
+    etat.rappel = rappel;
+    etat.filtre = filtre || "";
+    construire();
+    if (etat.items.length === 0) { fermer(); return; }
+    el.hidden = false;
+    etat.ouvert = true;
+    positionner(ancre);
+  }
+
+  function fermer() {
+    el.hidden = true;
+    etat.ouvert = false;
+  }
+
+  function bouger(delta) {
+    const n = etat.items.length;
+    if (!n) return;
+    etat.index = (etat.index + delta + n) % n;
+    [...el.children].forEach((b, i) => b.classList.toggle("actif", i === etat.index));
+    const actif = el.children[etat.index];
+    if (actif && actif.scrollIntoView) actif.scrollIntoView({ block: "nearest" });
+  }
+
+  function choisir(i) {
+    const type = etat.items[i];
+    const rappel = etat.rappel;
+    fermer();
+    if (type && rappel) rappel(type.cle);
+  }
+
+  // Clavier pour les menus ouverts depuis un bouton (le menu "/" est géré par l'éditeur)
+  document.addEventListener("keydown", (e) => {
+    if (!etat.ouvert || etat.origine === "slash") return;
+    if (e.key === "ArrowDown") { e.preventDefault(); bouger(1); }
+    else if (e.key === "ArrowUp") { e.preventDefault(); bouger(-1); }
+    else if (e.key === "Enter") { e.preventDefault(); choisir(etat.index); }
+    else if (e.key === "Escape") { fermer(); }
+  });
+
+  // Un toucher en dehors du menu le ferme
+  document.addEventListener("pointerdown", (e) => {
+    if (etat.ouvert && !el.contains(e.target) && e.target.id !== "plus-types") fermer();
+  });
+
+  return {
+    ouvrir: ouvrir,
+    fermer: fermer,
+    bouger: bouger,
+    valider: () => choisir(etat.index),
+    ouvert: () => etat.ouvert,
+    origine: () => etat.origine,
+  };
+})();
+
+
+/* ---------- Menu d'un bloc (ouvert par la poignée ⋮⋮) ---------- */
+
+App.MenuBloc = (function () {
+  const el = document.getElementById("menu-bloc");
+
+  function fermer() {
+    el.hidden = true;
+  }
+
+  function item(icone, texte, action, options) {
+    options = options || {};
+    const bouton = document.createElement("button");
+    bouton.type = "button";
+    bouton.className = "menu-item" + (options.danger ? " danger" : "");
+    bouton.disabled = !!options.desactive;
+    bouton.innerHTML = '<span class="menu-icone"></span><span class="menu-texte"><strong></strong></span>';
+    bouton.querySelector(".menu-icone").textContent = icone;
+    bouton.querySelector("strong").textContent = texte;
+    bouton.addEventListener("click", () => {
+      fermer();
+      action();
+    });
+    return bouton;
+  }
+
+  function ouvrir(id, ancre) {
+    const bl = App.page().blocs;
+    const i = bl.findIndex((b) => b.id === id);
+    const bloc = bl[i];
+    if (!bloc) return;
+    App.MenuTypes.fermer();
+
+    const maxNiveau = i === 0 ? 0 : Math.min(3, bl[i - 1].niveau + 1);
+
+    // Rangée de couleurs
+    const couleurs = document.createElement("div");
+    couleurs.className = "menu-couleurs";
+    ["", ...App.COULEURS_BLOC].forEach((c) => {
+      const p = document.createElement("button");
+      p.type = "button";
+      p.className = "pastille-bloc" + ((bloc.couleur || "") === c ? " choisie" : "");
+      p.dataset.c = c || "aucune";
+      p.title = c ? "Couleur " + c : "Sans couleur";
+      p.setAttribute("aria-label", p.title);
+      p.addEventListener("click", () => { fermer(); App.colorer(id, c); });
+      couleurs.append(p);
+    });
+
+    el.replaceChildren(
+      item("↑", "Monter", () => App.deplacer(id, -1), { desactive: i === 0 }),
+      item("↓", "Descendre", () => App.deplacer(id, 1), { desactive: i === bl.length - 1 }),
+      item("→", "Décaler à droite", () => App.decaler(id, 1), { desactive: bloc.niveau >= maxNiveau }),
+      item("←", "Décaler à gauche", () => App.decaler(id, -1), { desactive: bloc.niveau === 0 }),
+      item("⇄", "Transformer en…", () => {
+        App.MenuTypes.ouvrir(ancre, "", (type) => App.convertir(id, type), "convertir");
+      }),
+      item("⧉", "Dupliquer", () => App.dupliquer(id)),
+      couleurs,
+      item("🗑", "Supprimer", () => App.supprimerBloc(id), { danger: true })
+    );
+
+    el.hidden = false;
+    if (window.innerWidth <= 640) {
+      el.style.left = "";
+      el.style.top = "";
+    } else {
+      const r = ancre.getBoundingClientRect();
+      const h = el.offsetHeight;
+      let haut = r.top;
+      if (haut + h > window.innerHeight - 10) haut = Math.max(10, window.innerHeight - h - 10);
+      el.style.top = haut + "px";
+      el.style.left = r.right + 8 + "px";
+    }
+  }
+
+  document.addEventListener("pointerdown", (e) => {
+    if (!el.hidden && !el.contains(e.target) && !e.target.closest(".poignee")) fermer();
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") fermer();
+  });
+
+  return { ouvrir: ouvrir, fermer: fermer };
+})();
+
+</script>
+  <script>
+"use strict";
+
+/* =====================================================
+   pages.js : menu latéral, en-tête de page, progression
+   ===================================================== */
+
+(function () {
+  const $ = (id) => document.getElementById(id);
+  const titrePage = $("titre-page");
+  const iconePage = $("icone-page");
+  const pastilles = $("couleurs-page");
+  const listePages = $("liste-pages");
+  const recherche = $("recherche");
+  const zonePage = $("page");
+
+  const COULEUR_THEME = {
+    violet: "#7c5cff", bleu: "#2f80ed", vert: "#14b571",
+    orange: "#ff7a1a", rose: "#ff4d8d", turquoise: "#0fb5b0",
+  };
+  let dejaComplet = false;
+
+
+  /* ---------- En-tête de la page ---------- */
+
+  // Pastilles de couleur (créées une seule fois)
+  App.COULEURS_PAGE.forEach((c) => {
+    const bouton = document.createElement("button");
+    bouton.type = "button";
+    bouton.className = "pastille";
+    bouton.dataset.c = c;
+    bouton.title = "Couleur " + c;
+    bouton.setAttribute("aria-label", "Couleur " + c);
+    bouton.addEventListener("click", () => {
+      App.page().couleur = c;
+      App.sauver();
+      App.afficherEntete();
+      App.afficherPages();
+    });
+    pastilles.append(bouton);
+  });
+
+  App.afficherEntete = function () {
+    const page = App.page();
+    document.body.dataset.couleur = page.couleur;
+    iconePage.textContent = page.icone;
+    titrePage.textContent = page.titre;
+    document.title = (page.titre || "Sans titre") + " · Mes blocs";
+    const meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.setAttribute("content", COULEUR_THEME[page.couleur]);
+    [...pastilles.children].forEach((p) => p.classList.toggle("choisie", p.dataset.c === page.couleur));
+  };
+
+  // Un toucher sur l'icône en choisit une autre
+  iconePage.addEventListener("click", () => {
+    const page = App.page();
+    const i = App.ICONES.indexOf(page.icone);
+    page.icone = App.ICONES[(i + 1) % App.ICONES.length];
+    App.sauver();
+    iconePage.textContent = page.icone;
+    iconePage.classList.remove("rebond");
+    void iconePage.offsetWidth;
+    iconePage.classList.add("rebond");
+    App.afficherPages();
+  });
+
+  titrePage.addEventListener("input", () => {
+    App.page().titre = titrePage.textContent;
+    document.title = (App.page().titre || "Sans titre") + " · Mes blocs";
+    App.sauver();
+    App.afficherPages();
+  });
+  titrePage.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      const premier = zonePage.querySelector(".champ");
+      if (premier) premier.focus();
+    }
+  });
+
+
+  /* ---------- Barre de progression des tâches ---------- */
+
+  App.majProgres = function (animer) {
+    const taches = App.page().blocs.filter((b) => b.type === "tache");
+    const faits = taches.filter((b) => b.fait).length;
+    const zone = $("progres");
+    const pct = taches.length ? Math.round((faits / taches.length) * 100) : 0;
+    const complet = taches.length > 0 && faits === taches.length;
+
+    zone.hidden = taches.length === 0;
+    $("progres-rempli").style.width = pct + "%";
+    $("progres-texte").textContent = taches.length
+      ? faits + " / " + taches.length + " tâche" + (taches.length > 1 ? "s" : "") + (complet ? " · bravo 🎉" : "")
+      : "";
+    zone.classList.toggle("complet", complet);
+
+    if (complet && !dejaComplet && animer) App.confettis($("progres-rempli"), 30);
+    dejaComplet = complet;
+  };
+
+
+  /* ---------- Liste des pages ---------- */
+
+  App.afficherPages = function () {
+    const q = App.simplifier(recherche.value);
+    const courante = App.page().id;
+    const pages = App.etat.pages.filter((p) =>
+      !q || App.simplifier(p.titre).includes(q) || p.blocs.some((b) => App.simplifier(b.texte).includes(q))
+    );
+
+    if (pages.length === 0) {
+      const vide = document.createElement("p");
+      vide.className = "vide";
+      vide.textContent = "Aucune page trouvée";
+      listePages.replaceChildren(vide);
+      return;
+    }
+
+    listePages.replaceChildren(...pages.map((p) => {
+      const ligne = document.createElement("div");
+      ligne.className = "page-item" + (p.id === courante ? " actif" : "");
+
+      const ouvrir = document.createElement("button");
+      ouvrir.type = "button";
+      ouvrir.className = "page-ouvrir";
+      const point = document.createElement("span");
+      point.className = "point";
+      point.dataset.c = p.couleur;
+      const icone = document.createElement("span");
+      icone.className = "page-icone";
+      icone.textContent = p.icone;
+      const nom = document.createElement("span");
+      nom.className = "page-nom";
+      nom.textContent = p.titre || "Sans titre";
+      ouvrir.append(point, icone, nom);
+      ouvrir.addEventListener("click", () => App.ouvrirPage(p.id));
+
+      const supprimer = document.createElement("button");
+      supprimer.type = "button";
+      supprimer.className = "page-supprimer";
+      supprimer.textContent = "×";
+      supprimer.setAttribute("aria-label", "Supprimer la page « " + (p.titre || "Sans titre") + " »");
+      supprimer.addEventListener("click", () => App.supprimerPage(p.id));
+
+      ligne.append(ouvrir, supprimer);
+      return ligne;
+    }));
+  };
+
+  App.ouvrirPage = function (id, animer) {
+    const page = App.etat.pages.find((p) => p.id === id) || App.etat.pages[0];
+    App.etat.courante = page.id;
+    App.sauver();
+
+    App.Toast.fermer();
+    App.MenuTypes.fermer();
+    App.MenuBloc.fermer();
+    App.afficherEntete();
+    App.afficherBlocs(null);
+    App.majProgres(false);
+    App.afficherPages();
+    fermerLateral();
+    window.scrollTo(0, 0);
+
+    if (animer !== false && !App.mouvementReduit()) {
+      zonePage.classList.remove("change");
+      void zonePage.offsetWidth;
+      zonePage.classList.add("change");
+    }
+  };
+
+  App.creerPage = function () {
+    const nombre = App.etat.pages.length;
+    const page = App.nouvellePage(
+      "",
+      App.COULEURS_PAGE[nombre % App.COULEURS_PAGE.length],
+      App.ICONES[nombre % App.ICONES.length]
+    );
+    App.etat.pages.push(page);
+    recherche.value = "";
+    App.ouvrirPage(page.id);
+    titrePage.focus();
+  };
+
+  App.supprimerPage = function (id) {
+    const pages = App.etat.pages;
+    const i = pages.findIndex((p) => p.id === id);
+    if (i === -1) return;
+    const page = pages[i];
+    const etaitCourante = App.page().id === id;
+
+    pages.splice(i, 1);
+    let remplacante = null;
+    if (pages.length === 0) {
+      remplacante = App.nouvellePage();
+      pages.push(remplacante);
+    }
+
+    if (etaitCourante || remplacante) {
+      App.ouvrirPage((pages[i] || pages[i - 1] || pages[0]).id);
+    } else {
+      App.sauver();
+      App.afficherPages();
+    }
+
+    App.Toast.afficher("Page supprimée", {
+      action: "Annuler",
+      surAction: () => {
+        if (remplacante) pages.splice(pages.indexOf(remplacante), 1);
+        pages.splice(Math.min(i, pages.length), 0, page);
+        App.ouvrirPage(page.id);
+      },
+    });
+  };
+
+
+  /* ---------- Menu latéral (tiroir sur mobile) ---------- */
+
+  function ouvrirLateral() { document.body.classList.add("menu-ouvert"); }
+  function fermerLateral() { document.body.classList.remove("menu-ouvert"); }
+
+  $("ouvrir-menu").addEventListener("click", ouvrirLateral);
+  $("voile").addEventListener("click", fermerLateral);
+  $("nouvelle-page").addEventListener("click", App.creerPage);
+  $("theme").addEventListener("click", App.changerTheme);
+  recherche.addEventListener("input", App.afficherPages);
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") fermerLateral();
+  });
+})();
+
+</script>
+  <script>
+"use strict";
+
+/* =====================================================
+   app.js : démarrage de l'appli
+   (les autres fichiers sont dans le dossier js/)
+   ===================================================== */
+
+// Thème (clair, sombre ou automatique)
+App.appliquerTheme();
+
+// Affiche la dernière page ouverte
+App.ouvrirPage(App.etat.courante, false);
+
+
+/* ---------- Clavier du téléphone ----------
+   Sur certains téléphones, le clavier cache la barre du bas.
+   On la remonte de la hauteur du clavier. */
+if (window.visualViewport) {
+  const ajuster = () => {
+    const decalage = window.innerHeight - window.visualViewport.height - window.visualViewport.offsetTop;
+    document.documentElement.style.setProperty("--clavier", Math.max(0, Math.round(decalage)) + "px");
+  };
+  window.visualViewport.addEventListener("resize", ajuster);
+  window.visualViewport.addEventListener("scroll", ajuster);
+}
+
+
+/* ---------- Installation sur l'écran d'accueil ---------- */
+let invitationInstall = null;
+const boutonInstaller = document.getElementById("installer");
+
+window.addEventListener("beforeinstallprompt", (e) => {
+  e.preventDefault();
+  invitationInstall = e;
+  boutonInstaller.hidden = false;
+});
+
+boutonInstaller.addEventListener("click", async () => {
+  if (!invitationInstall) return;
+  invitationInstall.prompt();
+  await invitationInstall.userChoice;
+  invitationInstall = null;
+  boutonInstaller.hidden = true;
+});
+
+window.addEventListener("appinstalled", () => {
+  boutonInstaller.hidden = true;
+  App.Toast.afficher("Appli installée 🎉");
+});
+
+
+/* ---------- Mode hors ligne (service worker) ---------- */
+if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("sw.js").catch(() => {
+      // pas grave : l'appli marche quand même, sans le mode hors ligne
+    });
+  });
+}
+
+</script>
+</body>
+</html>
